@@ -8,6 +8,8 @@ const {
 const app = express();
 const toAndFrom = require('./ToAndFrom.js');
 const nextLeave = require('./NextLeave.js');
+const nextLeaveTo = require('./NextLeaveTo.js');
+const nextLeaveTowards = require('./NextLeaveTowards.js');
 
 exports.locationBaseUrl = 'https://api.sl.se/api2/typeahead.json?key=20088837b8b7415fa2d941be7fe8f6f8';
 exports.tripBaseUrl = 'https://api.sl.se/api2/TravelplannerV3_1/trip.json?key=95f531f140354efe9338f037703ed5d6';
@@ -22,8 +24,12 @@ app.post('/dialogflow', express.json(), (req, res) => {
 
   let intentMap = new Map();
   intentMap.set('ToAndFrom', toAndFrom.ToAndFrom);
+  intentMap.set('NextLeave', nextLeaveTo.NextLeaveTo);
   intentMap.set('NextLeaveTo', nextLeaveTo.NextLeaveTo);
   intentMap.set('NextLeaveTowards', nextLeaveTowards.NextLeaveTowards);
+  // intentMap.set('NextLeave', nextLeave.NextLeave);
+  // intentMap.set('NextLeaveTo', nextLeave.NextLeave);
+  // intentMap.set('NextLeaveTowards', nextLeave.NextLeave);
   exports.agent.handleRequest(intentMap);
 });
 

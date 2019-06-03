@@ -12,8 +12,8 @@ const functions = require('firebase-functions');
 const request = require('request');
 const axios = require('axios');
 const toAndFrom = require('./ToAndFrom.js');
-const toAndFrom = require('./NextLeave.js');
+const nextLeave = require('./NextLeave.js');
 
 exports.NextLeaveTo = function (conv) {
-  return exports.NextLeave(conv, "to");
+  return nextLeave.NextLeave(conv, "to");
 }
