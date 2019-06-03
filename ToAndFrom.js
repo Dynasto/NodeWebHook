@@ -45,8 +45,8 @@ exports.ToAndFrom = function (conv) {
                                     return;
                                 }
 
-                                var outputString = `Åk ${traveltypeCheck(TravelCategory[firstLeg.category])} från ${firstLeg.Origin.name} ${trackCheck(firstLeg.Origin.track, firstLeg.category)} kl. ${cutTime(firstLeg.Origin.time)} ${undefinedCheck(beautifulDate1(firstLeg.Origin.date))} 
-                                                    ${undefinedCheck(firstLeg.Product.line)}${directionCheck(firstLeg.direction)} till ${firstLeg.Destination.name}, ankomst kl. ${cutTime(firstLeg.Destination.time)}. `;
+                                var outputString = `Åk ${exports.traveltypeCheck(TravelCategory[firstLeg.category])} från ${firstLeg.Origin.name} ${exports.trackCheck(firstLeg.Origin.track, firstLeg.category)} kl. ${exports.cutTime(firstLeg.Origin.time)} ${exports.undefinedCheck(beautifulDate1(firstLeg.Origin.date))} 
+                                                    ${exports.undefinedCheck(firstLeg.Product.line)}${exports.directionCheck(firstLeg.direction)} till ${firstLeg.Destination.name}, ankomst kl. ${exports.cutTime(firstLeg.Destination.time)}. `;
                                 var previousDate = firstLeg.Origin.date;
 
                                 for (let i = 1; i < legs.length; i++) {
@@ -54,8 +54,8 @@ exports.ToAndFrom = function (conv) {
                                     if (leg.Origin.name != leg.Destination.name/* && leg.*/) {
                                         var date = new Date();
 
-                                        outputString += `Åk ${varietySedan()} ${traveltypeCheck(TravelCategory[leg.category])} från ${leg.Origin.name} ${trackCheck(leg.Origin.track, leg.category)} kl. ${cutTime(leg.Origin.time)} ${undefinedCheck(beautifulDate2(previousDate, leg.Origin.date))} 
-                                                        ${productCheck(leg.Product)}${directionCheck(leg.direction)} till ${leg.Destination.name}, ankomst kl. ${cutTime(leg.Destination.time)}. `;
+                                        outputString += `Åk ${exports.varietySedan()} ${exports.traveltypeCheck(TravelCategory[leg.category])} från ${leg.Origin.name} ${exports.trackCheck(leg.Origin.track, leg.category)} kl. ${exports.cutTime(leg.Origin.time)} ${exports.undefinedCheck(beautifulDate2(previousDate, leg.Origin.date))} 
+                                                        ${exports.productCheck(leg.Product)}${exports.directionCheck(leg.direction)} till ${leg.Destination.name}, ankomst kl. ${exports.cutTime(leg.Destination.time)}. `;
                                         previousDate = leg.Origin.date;
                                     }
 
