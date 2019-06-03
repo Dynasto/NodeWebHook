@@ -22,7 +22,6 @@ app.post('/dialogflow', express.json(), (req, res) => {
 
   let intentMap = new Map();
   intentMap.set('ToAndFrom', toAndFrom.ToAndFrom);
-  intentMap.set('NextLeave', nextLeave.NextLeave);
   intentMap.set('NextLeaveTo', nextLeaveTo.NextLeaveTo);
   intentMap.set('NextLeaveTowards', nextLeaveTowards.NextLeaveTowards);
   exports.agent.handleRequest(intentMap);
