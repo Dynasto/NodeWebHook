@@ -13,13 +13,19 @@ const request = require('request');
 const axios = require('axios');
 const toAndFrom = require('./ToAndFrom.js');
 
-//todo bygg denna funktion också
-//'från sundbyberg till slussen' returnerar att man ska gå från pendelstationen odenplan till tbanestationen odenplan, och det ser konstigt ut i resultat-texten. fixa
+exports.NextLeave = function (conv, where) {
+  var to, goingTowards = false;
+  if (where == "to") {
+    to = conv.parameters.to;
+  } else if (where == "towards") {
+    to = conv.parameters.towards;
+    goingTowards = true;
+  }
 
-
-exports.ToAndFrom = function (conv) {
-  var to = conv.parameters.to;
-  var from = conv.parameters.from;
+  var from = "Solna Business Park"; // default for optional parameter "from"
+  if (exports.ToAndFrom.undefinedCheck(conv.parameters.from) != "") {
+    from = conv.parameters.from;
+  }
   if (to == "" || from == "") {
     return;
   }
@@ -30,40 +36,71 @@ exports.ToAndFrom = function (conv) {
   var startDest, endDest;
 
   return new Promise((resolve, reject) => {
-    startDest = res.data.ResponseData[0].SiteId;
+    //get end
+    axios.get(simpleServer.locationBaseUrl + '&searchstring=' + to + '&maxresults=1', {})
+        .then((res) => {
+            if (res.data.ResponseData.length == 0) {
+                agent.add('Adressen hittades inte');
+                return;
+            }
+            endDest = res.data.ResponseData[0].SiteId;
 
-    //get trips
-    axios.get(simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest, {})
-      .then((res) => {
-        var Trip = res.data.Trip[0];
-        var legs = Trip.LegList.Leg;
-        var firstLeg = legs[0];
-        var lastLeg = legs[legs.length - 1];
-        if (!firstLeg.reachable) {
-          simpleServer.agent.add(`Resan ${firstLeg.Origin.name} till ${firstLeg.Destination.name} är inte åtkomlig för tillfället.`);
-          resolve(output);
-          return;
-        }
+            //get start
+            axios.get(simpleServer.locationBaseUrl + '&searchstring=' + from + '&maxresults=1', {})
+                .then((res) => {
+                    if (res.data.ResponseData.length == 0) {
+                        agent.add('Adressen hittades inte');
+                        return;
+                    }
+                    startDest = res.data.ResponseData[0].SiteId;
 
-        var outputString = `Åk från ${firstLeg.Origin.name} ${trackCheck(firstLeg.Origin.track, firstLeg.category)} kl. ${cutTime(firstLeg.Origin.time)} ${undefinedCheck(beautifulDate1(firstLeg.Origin.date))} 
-               ${traveltypeCheck(TravelCategory[firstLeg.category])} ${undefinedCheck(firstLeg.Product.line)}${directionCheck(firstLeg.direction)} till ${firstLeg.Destination.name}, ankomst kl. ${cutTime(firstLeg.Destination.time)}. `;
-        var previousDate = firstLeg.Origin.date;
+                    //get trips
+                    axios.get(toAndFromUrl, {})
+                        .then((res) => {
+                            var Trip = res.data.Trip[0];
+                            var legs = Trip.LegList.Leg;
+                            var firstLeg = legs[0];
+                            var lastLeg = legs[legs.length - 1];
+                            if (!firstLeg.reachable) {
+                                simpleServer.agent.add(`Resan ${firstLeg.Origin.name} till ${firstLeg.Destination.name} är inte åtkomlig för tillfället.`);
+                                resolve(output);
+                                return;
+                            }
 
-        for (let i = 1; i < legs.length; i++) {
-          var leg = legs[i];
-          if (leg.Origin.name != leg.Destination.name) {
-            var date = new Date();
+                            // ${undefinedCheck(firstLeg.Product.line)}${directionCheck(firstLeg.direction)}
+                            if (goingTowards) {
+                              var outputString = `Nästa ${exports.ToAndFrom.traveltypeCheck(TravelCategory[firstLeg.category])} linje ${exports.ToAndFrom.trackCheck(firstLeg.Origin.track, firstLeg.category)} mot ${firstLeg.Destination.name} går klockan ${exports.ToAndFrom.cutTime(firstLeg.Origin.time)}.`;
+                            } else {
+                              var outputString = `Nästa ${exports.ToAndFrom.traveltypeCheck(TravelCategory[firstLeg.category])} linje ${exports.ToAndFrom.trackCheck(firstLeg.Origin.track, firstLeg.category)} till ${firstLeg.Destination.name} går klockan ${exports.ToAndFrom.cutTime(firstLeg.Origin.time)}.`;
+                            }
 
-            outputString += `Åk ${varietySedan()} från ${leg.Origin.name} ${trackCheck(leg.Origin.track, leg.category)} kl. ${cutTime(leg.Origin.time)} ${undefinedCheck(beautifulDate2(previousDate, leg.Origin.date))} 
-                  ${traveltypeCheck(TravelCategory[leg.category])} ${productCheck(leg.Product)}${directionCheck(leg.direction)} till ${leg.Destination.name}, ankomst kl. ${cutTime(leg.Destination.time)}. `;
-            previousDate = leg.Origin.date;
-          }
+                            for (let i = 1; i < legs.length; i++) {
+                              var leg = legs[i];
+                              // TODO: Add check for walk
+                              if (leg.Origin.name != leg.Destination.name) {
+                                outputString += ` Byt därefter till ${exports.ToAndFrom.traveltypeCheck(TravelCategory[leg.category])} ${exports.ToAndFrom.trackCheck(leg.Origin.track, leg.category)} till ${leg.Destination.name}`;
+                                break; // Only output first transfer
+                              }
+                            }
 
-        }
-        let output = simpleServer.agent.add(outputString);
+                            var cStart = firstLeg.Origin.time;
+                            var cStop = lastLeg.Destination.time;
 
-        resolve(output);
-      })
-      .catch(simpleServer.ApiError);
+                            if (cStart != "" && cStop != "") {
+                                var tStart = parseTime(cStart);
+                                var tStop = parseTime(cStop);
+
+                                outputString += ` Restid ${(tStop - tStart) / (1000 * 60)} min`;
+                            } else {
+                            }
+                            let output = simpleServer.agent.add(outputString);
+
+                            resolve(output);
+                        })
+                        .catch(simpleServer.ApiError);
+                })
+                .catch(simpleServer.ApiError);
+        })
+        .catch(simpleServer.ApiError);
   });
 }
