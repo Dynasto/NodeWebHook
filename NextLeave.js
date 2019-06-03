@@ -22,7 +22,7 @@ exports.NextLeave = function (conv, where) {
     goingTowards = true;
   }
 
-  var from = "Solna Business Park";
+  var from = "Solna Business Park"; // default for optional parameter "from"
   if (exports.ToAndFrom.undefinedCheck(conv.parameters.from) != "") {
     from = conv.parameters.from;
   }
@@ -79,7 +79,7 @@ exports.NextLeave = function (conv, where) {
                               // TODO: Add check for walk
                               if (leg.Origin.name != leg.Destination.name) {
                                 outputString += ` Byt därefter till ${exports.ToAndFrom.traveltypeCheck(TravelCategory[leg.category])} ${exports.ToAndFrom.trackCheck(leg.Origin.track, leg.category)} till ${leg.Destination.name}`;
-                                break;
+                                break; // Only output first transfer
                               }
                             }
 
