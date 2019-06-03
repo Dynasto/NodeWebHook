@@ -70,29 +70,18 @@ exports.NextLeave = function (conv, where) {
 
                             // ${undefinedCheck(firstLeg.Product.line)}${directionCheck(firstLeg.direction)}
                             if (goingTowards) {
-                              var outputString = `Nästa ${toAndFrom.traveltypeCheck(toAndFrom.TravelCategory[firstLeg.category])} linje ${toAndFrom.trackCheck(firstLeg.Origin.track, firstLeg.category)} mot ${firstLeg.Destination.name} går klockan ${toAndFrom.cutTime(firstLeg.Origin.time)}.`;
+                              var outputString = `Nästa ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[firstLeg.category])} linje ${toAndFrom.undefinedCheck(firstLeg.Product.line)} mot ${toAndFrom.undefinedCheck(firstLeg.Destination.name)} går klockan ${toAndFrom.undefinedCheck(toAndFrom.cutTime(firstLeg.Origin.time))}.`;
                             } else {
-                              var outputString = `Nästa ${toAndFrom.traveltypeCheck(toAndFrom.TravelCategory[firstLeg.category])} linje ${toAndFrom.trackCheck(firstLeg.Origin.track, firstLeg.category)} till ${firstLeg.Destination.name} går klockan ${toAndFrom.cutTime(firstLeg.Origin.time)}.`;
+                              var outputString = `Nästa ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[firstLeg.category])} linje ${toAndFrom.undefinedCheck(firstLeg.Product.line)} till ${toAndFrom.undefinedCheck(firstLeg.Destination.name)} går klockan ${toAndFrom.undefinedCheck(toAndFrom.cutTime(firstLeg.Origin.time))}.`;
                             }
 
                             for (let i = 1; i < legs.length; i++) {
                               var leg = legs[i];
                               // TODO: Add check for walk
                               if (leg.Origin.name != leg.Destination.name) {
-                                outputString += ` Byt därefter till ${toAndFrom.traveltypeCheck(toAndFrom.TravelCategory[leg.category])} ${toAndFrom.trackCheck(leg.Origin.track, leg.category)} till ${leg.Destination.name}`;
+                                outputString += ` Byt därefter till ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[leg.category])} linje ${toAndFrom.undefinedCheck(leg.Product.line)} till ${toAndFrom.undefinedCheck(leg.Destination.name)}.`;
                                 break; // Only output first transfer
                               }
-                            }
-
-                            var cStart = firstLeg.Origin.time;
-                            var cStop = lastLeg.Destination.time;
-
-                            if (cStart != "" && cStop != "") {
-                                var tStart = toAndFrom.parseTime(cStart);
-                                var tStop = toAndFrom.parseTime(cStop);
-
-                                outputString += ` Restid ${(tStop - tStart) / (1000 * 60)} min`;
-                            } else {
                             }
                             let output = simpleServer.agent.add(outputString);
 
