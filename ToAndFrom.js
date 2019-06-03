@@ -90,7 +90,7 @@ exports.ToAndFrom = function (conv) {
     });
 }
 
-function parseTime(cTime) {
+exports.parseTime = function(cTime) {
     if (cTime == '') return null;
     var d = new Date();
     var time = cTime.match(/(\d+)(:(\d\d))?\s*(p?)/);
@@ -100,7 +100,7 @@ function parseTime(cTime) {
     return d;
 }
 
-function productCheck(product) {
+exports.productCheck = function(product) {
     if (product != undefined) {
         if (product.line != undefined) {
             return `${product.line}`;
@@ -109,49 +109,49 @@ function productCheck(product) {
     return "";
 }
 
-function varietySedan() {
+exports.varietySedan = function() {
     if (Math.random() >= 0.5) {
         return "sedan";
     }
     return "därefter";
 }
 
-function traveltypeCheck(traveltype) {
+exports.traveltypeCheck = function(traveltype) {
     if (traveltype != undefined) {
         return `med ${traveltype}`;
     }
     return "";
 }
 
-function directionCheck(dir) {
+exports.directionCheck = function(dir) {
     if (dir != undefined) {
         return `, riktning ${dir},`;
     }
     return "";
 }
 
-function trackCheck(track, category) {
+exports.trackCheck = function(track, category) {
     if (track != undefined) {
         return `(${category == "BUS" ? "hållplats" : "spår"} ${track})`;
     }
     return "";
 }
 
-function cutTime(time) {
+exports.cutTime = function(time) {
     return time.substring(0, time.length - 3);
 }
 
-function undefinedCheck(parameter) {
+exports.undefinedCheck = function(parameter) {
     return parameter == undefined ? "" : parameter;
 }
 
-function beautifulDate1(travelDate) {
+exports.beautifulDate1 = function(travelDate) {
     var currentDate = new Date();
     let formattedCurrentDate = currentDate.getFullYear() + "-" + (currentDate.getMonth() + 1 < 10 ? "0" : "") + (currentDate.getMonth() + 1) + "-" + currentDate.getDate()
     return beautifulDate2(formattedCurrentDate, travelDate)
 }
 
-function beautifulDate2(currentDate, travelDate) {
+exports.beautifulDate2 = function(currentDate, travelDate) {
     previousDate = travelDate;
 
     if (currentDate != travelDate) {
@@ -160,7 +160,7 @@ function beautifulDate2(currentDate, travelDate) {
     return "";
 }
 
-TravelCategory = {
+exports.TravelCategory = {
     "TRN": "pendeltåg",
     "TRM": "spårvagn",
     "BUS": "buss",
@@ -168,7 +168,7 @@ TravelCategory = {
     "SHP": "båt"
 }
 
-TravelType = {
+exports.TravelType = {
     "JNY": "resa",
     "WALK": "gå"
 }
