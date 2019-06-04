@@ -52,7 +52,7 @@ exports.ToAndFrom = function (conv) {
                         var formattedCurrentDate = date.getFullYear() + "-" + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate();
                         var time = (date.getHours() < 10 ? "0" : "") + (date.getHours()) + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
                         var url = simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest + '&time=' + time + '&date=' + formattedCurrentDate;
-                        
+
                         // Get trip details using SL Reseplanerare 3.1
                         axios.get(url, {})
                             .then((res) => {
@@ -77,7 +77,7 @@ exports.ToAndFrom = function (conv) {
                                 var firstLeg = legs[0];
                                 var lastLeg = legs[legs.length - 1];
                                 if (!firstLeg.reachable) {
-                                    simpleServer.agent.add(`Det går inte att resa från ${firstLeg.Origin.name} till ${firstLeg.Destination.name} just nu. Besök SL.se för aktuell info.`);
+                                    let output = simpleServer.agent.add(`Det går inte att resa från ${firstLeg.Origin.name} till ${firstLeg.Destination.name} just nu. Besök SL.se för aktuell info.`);
                                     resolve(output);
                                     return;
                                 }

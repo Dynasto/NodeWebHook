@@ -15,7 +15,9 @@ const toAndFrom = require('./ToAndFrom.js');
 
 // where = "to", "towards"; determines text of response
 exports.NextLeave = function (conv, where) {
+  var that = this;
   var to, goingTowards = false;
+  that.travelMethod = conv.parameters.travelMethod;
   // Collect mandatory parameters (either to or towards will always be available)
   if (where == "to") {
     to = conv.parameters.to;
@@ -66,11 +68,16 @@ exports.NextLeave = function (conv, where) {
             var date = new Date();
             var formattedCurrentDate = date.getFullYear() + "-" + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate();
             var time = (date.getHours() < 10 ? "0" : "") + (date.getHours()) + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
-            var url = simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest + '&time=' + time + '&date=' + formattedCurrentDate;
+            var url = simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest + '&time=' + time + '&date=' + formattedCurrentDate + tripMethodHandler(that.travelMethod);
 
             // Get trip details using SL Reseplanerare 3.1
             axios.get(url, {})
               .then((res) => {
+                if (res.data.StatusCode != undefined && res.data.StatusCode == 1008) {
+                  let output = simpleServer.agent.add(`Det går inte att hitta en resa med ${that.travelMethod} mellan dessa platser just nu. Besök SL.se för aktuell info.`);
+                  resolve(output);
+                  return;
+                }
                 var Trip = ""; //= res.data.Trip[0];
                 var SecondTrip = "";
                 // Checks that the time for the first trip hasn't already passed, and finds the next available trip as well
@@ -93,7 +100,7 @@ exports.NextLeave = function (conv, where) {
                 var firstLeg = legs[0];
                 var lastLeg = legs[legs.length - 1];
                 if (!firstLeg.reachable) {
-                  simpleServer.agent.add(`Det går inte att resa från ${firstLeg.Origin.name} till ${firstLeg.Destination.name} just nu. Besök SL.se för aktuell info.`);
+                  let output = simpleServer.agent.add(`Det går inte att resa från ${firstLeg.Origin.name} till ${firstLeg.Destination.name} just nu. Besök SL.se för aktuell info.`);
                   resolve(output);
                   return;
                 }
@@ -144,11 +151,26 @@ function SecondTripUndefined(SecondTrip, secondTripLeg) {
   return ` (därefter ${toAndFrom.cutTime(secondTripLeg.Origin.rtTime)})`;
 }
 
-function nextLeaveProductCheck (product) {
+function nextLeaveProductCheck(product) {
   if (product != undefined) {
-      if (product.line != undefined) {
-          return ` linje ${product.line}`;
-      }
+    if (product.line != undefined) {
+      return ` linje ${product.line}`;
+    }
   }
   return "";
+}
+
+function tripMethodHandler(travelMethod) {
+  if (travelMethod != "") {
+    return '&products=' + travelMethodDictionary[travelMethod]
+  }
+  return "";
+}
+
+travelMethodDictionary = {
+  "pendeltåg": "1",
+  "tunnelbana": "2",
+  "tvärbana": "4",
+  "buss": "8",
+  "båt": "64"
 }
