@@ -88,7 +88,7 @@ exports.NextLeave = function (conv, where) {
                   }
                 }
 
-                // Each leg is one potentially partial trip from point A to point B (other legs are transfers)
+                // Each leg is one (potentially) partial trip from point A to point B (other legs are transfers)
                 var legs = Trip.LegList.Leg;
                 var firstLeg = legs[0];
                 var lastLeg = legs[legs.length - 1];
