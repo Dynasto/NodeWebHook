@@ -4,6 +4,9 @@ const axios = require('axios');
 exports.ToAndFrom = function (conv) {
     var to = conv.parameters.to;
     var from = conv.parameters.from;
+    var that = this;
+    that.time = conv.parameters.time;
+
     if (to == "" || from == "") {
         return;
     }
@@ -32,10 +35,32 @@ exports.ToAndFrom = function (conv) {
                         }
                         startDest = res.data.ResponseData[0].SiteId;
 
+                        var date;
+                        if (that.time != undefined && that.time != "") {
+                            date = new Date(that.time);
+                        } else date = new Date();
+
+                        var formattedCurrentDate = date.getFullYear() + "-" + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate();
+                        var time = (date.getHours() < 10 ? "0" : "") + (date.getHours()) + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
+                        var url = simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest + '&time=' + time + '&date=' + formattedCurrentDate;
                         //get trips
-                        axios.get(simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest, {})
+                        axios.get(url, {})
                             .then((res) => {
-                                var Trip = res.data.Trip[0];
+                                var Trip = ""; //= res.data.Trip[0];
+                                var SecondTrip = "";
+                                for (let i = 0; i < res.data.Trip.length; i++) {
+                                    var tripLocal = res.data.Trip[i];
+                                    var originTimeMilliseconds = new Date(tripLocal.LegList.Leg[0].Origin.date + "T" + exports.rtTimeOrTime(tripLocal.LegList.Leg[0].Origin)).getTime();
+                                    var nowTimeMilliseconds = new Date().getTime();
+                                    if (nowTimeMilliseconds < originTimeMilliseconds) {
+                                        Trip = tripLocal;
+
+                                        if (i + 1 != res.data.Trip.length) {
+                                            SecondTrip = res.data.Trip[++i];
+                                        }
+                                        break;
+                                    }
+                                }
                                 var legs = Trip.LegList.Leg;
                                 var firstLeg = legs[0];
                                 var lastLeg = legs[legs.length - 1];
@@ -45,33 +70,29 @@ exports.ToAndFrom = function (conv) {
                                     return;
                                 }
 
-                                var outputString = `Åk ${exports.traveltypeCheck(TravelCategory[firstLeg.category])} från ${firstLeg.Origin.name} ${exports.trackCheck(firstLeg.Origin.track, firstLeg.category)} kl. ${exports.cutTime(firstLeg.Origin.time)} ${exports.undefinedCheck(beautifulDate1(firstLeg.Origin.date))} 
-                                                    ${exports.undefinedCheck(firstLeg.Product.line)}${exports.directionCheck(firstLeg.direction)} till ${firstLeg.Destination.name}, ankomst kl. ${exports.cutTime(firstLeg.Destination.time)}. `;
+                                var outputString = `Åk ${exports.traveltypeCheck(exports.TravelCategory[firstLeg.category])} ${exports.undefinedCheck(firstLeg.Product.line)} från ${firstLeg.Origin.name} ${exports.trackCheck(firstLeg.Origin.track, firstLeg.category)} 
+                                                    kl. ${exports.cutTime(exports.rtTimeOrTime(firstLeg.Origin))}${exports.undefinedCheck(exports.beautifulDate1(firstLeg.Origin.date))}${exports.directionCheck(firstLeg.direction)} till ${firstLeg.Destination.name}, ankomst kl. ${exports.cutTime(exports.rtTimeOrTime(firstLeg.Destination))}. `;
                                 var previousDate = firstLeg.Origin.date;
 
                                 for (let i = 1; i < legs.length; i++) {
                                     var leg = legs[i];
-                                    if (leg.Origin.name != leg.Destination.name/* && leg.*/) {
-                                        var date = new Date();
-
-                                        outputString += `Åk ${exports.varietySedan()} ${exports.traveltypeCheck(TravelCategory[leg.category])} från ${leg.Origin.name} ${exports.trackCheck(leg.Origin.track, leg.category)} kl. ${exports.cutTime(leg.Origin.time)} ${exports.undefinedCheck(beautifulDate2(previousDate, leg.Origin.date))} 
-                                                        ${exports.productCheck(leg.Product)}${exports.directionCheck(leg.direction)} till ${leg.Destination.name}, ankomst kl. ${exports.cutTime(leg.Destination.time)}. `;
+                                    if (leg.Origin.name != leg.Destination.name /* && leg.*/ ) {
+                                        var åkEllerGå = leg.type == "WALK" ? "Gå" : "Åk";
+                                        outputString += `${åkEllerGå} ${exports.varietySedan()} ${exports.traveltypeCheck(exports.TravelCategory[leg.category])} ${exports.productCheck(leg.Product)} från ${leg.Origin.name} ${exports.trackCheck(leg.Origin.track, leg.category)} 
+                                                        kl. ${exports.cutTime(exports.rtTimeOrTime(leg.Origin))}${exports.undefinedCheck(exports.beautifulDate2(previousDate, leg.Origin.date))}${exports.directionCheck(leg.direction)} till ${leg.Destination.name}, ankomst kl. ${exports.cutTime(exports.rtTimeOrTime(leg.Destination))}. `;
                                         previousDate = leg.Origin.date;
                                     }
-
                                 }
 
-
-                                var cStart = firstLeg.Origin.time;
-                                var cStop = lastLeg.Destination.time;
+                                var cStart = firstLeg.Origin.rtTime == undefined ? firstLeg.Origin.time : firstLeg.Origin.rtTime;
+                                var cStop = lastLeg.Destination.rtTime == undefined ? lastLeg.Destination.time : lastLeg.Destination.rtTime;
 
                                 if (cStart != "" && cStop != "") {
-                                    var tStart = parseTime(cStart);
-                                    var tStop = parseTime(cStop);
+                                    var tStart = exports.parseTime(cStart);
+                                    var tStop = exports.parseTime(cStop);
 
-                                    outputString += ` Restid ${(tStop - tStart) / (1000 * 60)} min`;
-                                } else {
-                                }
+                                    outputString += ` Restid ${(tStop - tStart) / (1000 * 60)} min.`;
+                                } else {}
                                 let output = simpleServer.agent.add(outputString);
 
                                 resolve(output);
@@ -90,7 +111,7 @@ exports.ToAndFrom = function (conv) {
     });
 }
 
-exports.parseTime = function(cTime) {
+exports.parseTime = function (cTime) {
     if (cTime == '') return null;
     var d = new Date();
     var time = cTime.match(/(\d+)(:(\d\d))?\s*(p?)/);
@@ -100,7 +121,7 @@ exports.parseTime = function(cTime) {
     return d;
 }
 
-exports.productCheck = function(product) {
+exports.productCheck = function (product) {
     if (product != undefined) {
         if (product.line != undefined) {
             return `${product.line}`;
@@ -109,49 +130,53 @@ exports.productCheck = function(product) {
     return "";
 }
 
-exports.varietySedan = function() {
+exports.varietySedan = function () {
     if (Math.random() >= 0.5) {
         return "sedan";
     }
     return "därefter";
 }
 
-exports.traveltypeCheck = function(traveltype) {
+exports.rtTimeOrTime = function (OriginOrDestination) {
+    return OriginOrDestination.rtTime == undefined ? OriginOrDestination.time : OriginOrDestination.rtTime;
+}
+
+exports.traveltypeCheck = function (traveltype) {
     if (traveltype != undefined) {
         return `med ${traveltype}`;
     }
     return "";
 }
 
-exports.directionCheck = function(dir) {
+exports.directionCheck = function (dir) {
     if (dir != undefined) {
         return `, riktning ${dir},`;
     }
     return "";
 }
 
-exports.trackCheck = function(track, category) {
+exports.trackCheck = function (track, category) {
     if (track != undefined) {
         return `(${category == "BUS" ? "hållplats" : "spår"} ${track})`;
     }
     return "";
 }
 
-exports.cutTime = function(time) {
+exports.cutTime = function (time) {
     return time.substring(0, time.length - 3);
 }
 
-exports.undefinedCheck = function(parameter) {
+exports.undefinedCheck = function (parameter) {
     return parameter == undefined ? "" : parameter;
 }
 
-exports.beautifulDate1 = function(travelDate) {
+exports.beautifulDate1 = function (travelDate) {
     var currentDate = new Date();
-    let formattedCurrentDate = currentDate.getFullYear() + "-" + (currentDate.getMonth() + 1 < 10 ? "0" : "") + (currentDate.getMonth() + 1) + "-" + currentDate.getDate()
-    return beautifulDate2(formattedCurrentDate, travelDate)
+    var formattedCurrentDate = currentDate.getFullYear() + "-" + (currentDate.getMonth() + 1 < 10 ? "0" : "") + (currentDate.getMonth() + 1) + "-" + (currentDate.getDate() + 1 < 10 ? "0" : "") + currentDate.getDate();
+    return exports.beautifulDate2(formattedCurrentDate, travelDate)
 }
 
-exports.beautifulDate2 = function(currentDate, travelDate) {
+exports.beautifulDate2 = function (currentDate, travelDate) {
     previousDate = travelDate;
 
     if (currentDate != travelDate) {

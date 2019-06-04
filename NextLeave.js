@@ -31,7 +31,7 @@ exports.NextLeave = function (conv, where) {
     return;
   }
   if (to == from) {
-    agent.add('Skriv inte samma');
+    simpleServer.agent.add('Skriv inte samma');
     return;
   }
   var startDest, endDest;
@@ -39,58 +39,102 @@ exports.NextLeave = function (conv, where) {
   return new Promise((resolve, reject) => {
     //get end
     axios.get(simpleServer.locationBaseUrl + '&searchstring=' + to + '&maxresults=1', {})
-        .then((res) => {
+      .then((res) => {
+        if (res.data.ResponseData.length == 0) {
+          agent.add('Adressen hittades inte');
+          return;
+        }
+        endDest = res.data.ResponseData[0].SiteId;
+
+        //get start
+        axios.get(simpleServer.locationBaseUrl + '&searchstring=' + from + '&maxresults=1', {})
+          .then((res) => {
             if (res.data.ResponseData.length == 0) {
-                agent.add('Adressen hittades inte');
-                return;
+              agent.add('Adressen hittades inte');
+              return;
             }
-            endDest = res.data.ResponseData[0].SiteId;
+            startDest = res.data.ResponseData[0].SiteId;
+            var date = new Date();
+            var formattedCurrentDate = date.getFullYear() + "-" + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate();
+            var time = (date.getHours() < 10 ? "0" : "") + (date.getHours()) + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
+            var url = simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest + '&time=' + time + '&date=' + formattedCurrentDate;
+            //get trips
+            axios.get(url, {})
+              .then((res) => {
+                var Trip = ""; //= res.data.Trip[0];
+                var SecondTrip = "";
+                for (let i = 0; i < res.data.Trip.length; i++) {
+                  var tripLocal = res.data.Trip[i];
+                  var originTimeMilliseconds = new Date(tripLocal.LegList.Leg[0].Origin.date + "T" + tripLocal.LegList.Leg[0].Origin.rtTime).getTime();
+                  var nowTimeMilliseconds = new Date().getTime();
+                  if (nowTimeMilliseconds < originTimeMilliseconds) {
+                    Trip = tripLocal;
 
-            //get start
-            axios.get(simpleServer.locationBaseUrl + '&searchstring=' + from + '&maxresults=1', {})
-                .then((res) => {
-                    if (res.data.ResponseData.length == 0) {
-                        agent.add('Adressen hittades inte');
-                        return;
+                    if (i + 1 != res.data.Trip.length) {
+                      SecondTrip = res.data.Trip[++i];
                     }
-                    startDest = res.data.ResponseData[0].SiteId;
+                    break;
+                  }
+                }
+                var legs = Trip.LegList.Leg;
+                var firstLeg = legs[0];
+                var lastLeg = legs[legs.length - 1];
+                if (!firstLeg.reachable) {
+                  simpleServer.agent.add(`Resan ${firstLeg.Origin.name} till ${firstLeg.Destination.name} är inte åtkomlig för tillfället.`);
+                  resolve(output);
+                  return;
+                }
+                var index = 1;
+                if (firstLeg.category == "WALK") {
+                  firstLeg = legs[1];
+                  index = 2;
+                }
+                if (SecondTrip != "") {
+                  var secondTripLeg = SecondTrip.LegList.Leg[0];
+                  if (secondTripLeg.category == "WALK") {
+                    secondTripLeg = legs[1];
+                  }
+                }
 
-                    //get trips
-                    axios.get(simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest, {})
-                        .then((res) => {
-                            var Trip = res.data.Trip[0];
-                            var legs = Trip.LegList.Leg;
-                            var firstLeg = legs[0];
-                            var lastLeg = legs[legs.length - 1];
-                            if (!firstLeg.reachable) {
-                                simpleServer.agent.add(`Resan ${firstLeg.Origin.name} till ${firstLeg.Destination.name} är inte åtkomlig för tillfället.`);
-                                resolve(output);
-                                return;
-                            }
+                // ${undefinedCheck(firstLeg.Product.line)}${directionCheck(firstLeg.direction)}
+                var outputString = `Nästa ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[firstLeg.category])}${nextLeaveProductCheck(firstLeg.Product)} ${goingTowards?"mot":"till"} ${toAndFrom.undefinedCheck(firstLeg.Destination.name)} 
+                  går klockan ${toAndFrom.undefinedCheck(toAndFrom.cutTime(firstLeg.Origin.rtTime == undefined ? firstLeg.Origin.time : firstLeg.Origin.rtTime))}${SecondTripUndefined(SecondTrip, secondTripLeg)}.`;
 
-                            // ${undefinedCheck(firstLeg.Product.line)}${directionCheck(firstLeg.direction)}
-                            if (goingTowards) {
-                              var outputString = `Nästa ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[firstLeg.category])} linje ${toAndFrom.undefinedCheck(firstLeg.Product.line)} mot ${toAndFrom.undefinedCheck(firstLeg.Destination.name)} går klockan ${toAndFrom.undefinedCheck(toAndFrom.cutTime(firstLeg.Origin.time))}.`;
-                            } else {
-                              var outputString = `Nästa ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[firstLeg.category])} linje ${toAndFrom.undefinedCheck(firstLeg.Product.line)} till ${toAndFrom.undefinedCheck(firstLeg.Destination.name)} går klockan ${toAndFrom.undefinedCheck(toAndFrom.cutTime(firstLeg.Origin.time))}.`;
-                            }
+                for (let i = index; i < legs.length; i++) {
+                  var leg = legs[i];
+                  // TODO: Add check for walk
 
-                            for (let i = 1; i < legs.length; i++) {
-                              var leg = legs[i];
-                              // TODO: Add check for walk
-                              if (leg.Origin.name != leg.Destination.name) {
-                                outputString += ` Byt därefter till ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[leg.category])} linje ${toAndFrom.undefinedCheck(leg.Product.line)} till ${toAndFrom.undefinedCheck(leg.Destination.name)}.`;
-                                break; // Only output first transfer
-                              }
-                            }
-                            let output = simpleServer.agent.add(outputString);
+                  if (leg.Origin.name != leg.Destination.name && leg.type != "WALK") {
+                    outputString += ` Byt sedan till ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[leg.category])}${nextLeaveProductCheck(leg.Product)} till ${toAndFrom.undefinedCheck(leg.Destination.name)}.`;
+                    break; // Only output first transfer
+                  }
+                }
+                // simpleServer.agent.add(0);
+                // simpleServer.agent.add(res);
+                let output = simpleServer.agent.add(outputString);
 
-                            resolve(output);
-                        })
-                        .catch(simpleServer.ApiError);
-                })
-                .catch(simpleServer.ApiError);
-        })
-        .catch(simpleServer.ApiError);
+                resolve(output);
+              })
+              .catch(simpleServer.ApiError);
+          })
+          .catch(simpleServer.ApiError);
+      })
+      .catch(simpleServer.ApiError);
   });
+}
+
+function SecondTripUndefined(SecondTrip, secondTripLeg) {
+  if (SecondTrip == "") {
+    return "";
+  }
+  return ` (därefter ${toAndFrom.cutTime(secondTripLeg.Origin.rtTime)})`;
+}
+
+function nextLeaveProductCheck (product) {
+  if (product != undefined) {
+      if (product.line != undefined) {
+          return ` linje ${product.line}`;
+      }
+  }
+  return "";
 }
