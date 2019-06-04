@@ -2,8 +2,10 @@ var simpleServer = require('./simpleServer.js');
 const axios = require('axios');
 
 exports.ToAndFrom = function (conv) {
+    // Mandatory variables from the Dialogflow agent
     var to = conv.parameters.to;
     var from = conv.parameters.from;
+    // Optional variables from the Dialogflow agent
     var that = this;
     that.time = conv.parameters.time;
 
@@ -18,10 +20,11 @@ exports.ToAndFrom = function (conv) {
         }
         return;
     }
+    // id of locations
     var startDest, endDest;
 
     return new Promise((resolve, reject) => {
-        //get end
+        // Lookup using SL Platsuppslag. Returns the id of the destination (to)
         axios.get(simpleServer.locationBaseUrl + '&searchstring=' + to + '&maxresults=1', {})
             .then((res) => {
                 if (res.data.ResponseData.length == 0) {
@@ -30,7 +33,7 @@ exports.ToAndFrom = function (conv) {
                 }
                 endDest = res.data.ResponseData[0].SiteId;
 
-                //get start
+                // Lookup using SL Platsuppslag. Returns the id of the origin (from)
                 axios.get(simpleServer.locationBaseUrl + '&searchstring=' + from + '&maxresults=1', {})
                     .then((res) => {
                         if (res.data.ResponseData.length == 0) {
@@ -40,18 +43,22 @@ exports.ToAndFrom = function (conv) {
                         startDest = res.data.ResponseData[0].SiteId;
 
                         var date;
+                        // If the user entered a time as optional variable, use that time. Otherwise, create new date
                         if (that.time != undefined && that.time != "") {
                             date = new Date(that.time);
                         } else date = new Date();
 
+                        // Formatted time and date is added to request to the SL API
                         var formattedCurrentDate = date.getFullYear() + "-" + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate();
                         var time = (date.getHours() < 10 ? "0" : "") + (date.getHours()) + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
                         var url = simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest + '&time=' + time + '&date=' + formattedCurrentDate;
-                        //get trips
+                        
+                        // Get trip details using SL Reseplanerare 3.1
                         axios.get(url, {})
                             .then((res) => {
                                 var Trip = ""; //= res.data.Trip[0];
                                 var SecondTrip = "";
+                                // Checks that the time for the first trip hasn't already passed, and finds the next available trip as well
                                 for (let i = 0; i < res.data.Trip.length; i++) {
                                     var tripLocal = res.data.Trip[i];
                                     var originTimeMilliseconds = new Date(tripLocal.LegList.Leg[0].Origin.date + "T" + exports.rtTimeOrTime(tripLocal.LegList.Leg[0].Origin)).getTime();
@@ -65,6 +72,7 @@ exports.ToAndFrom = function (conv) {
                                         break;
                                     }
                                 }
+                                // Each leg is one potentially partial trip from point A to point B (other legs are transfers)
                                 var legs = Trip.LegList.Leg;
                                 var firstLeg = legs[0];
                                 var lastLeg = legs[legs.length - 1];
@@ -74,10 +82,12 @@ exports.ToAndFrom = function (conv) {
                                     return;
                                 }
 
+                                // This is the primary response that is returned to the user
                                 var outputString = `Åk ${exports.traveltypeCheck(exports.TravelCategory[firstLeg.category])} ${exports.undefinedCheck(firstLeg.Product.line)} från ${firstLeg.Origin.name} ${exports.trackCheck(firstLeg.Origin.track, firstLeg.category)} 
                                                     kl. ${exports.cutTime(exports.rtTimeOrTime(firstLeg.Origin))}${exports.undefinedCheck(exports.beautifulDate1(firstLeg.Origin.date))}${exports.directionCheck(firstLeg.direction)} till ${firstLeg.Destination.name}, ankomst kl. ${exports.cutTime(exports.rtTimeOrTime(firstLeg.Destination))}. `;
                                 var previousDate = firstLeg.Origin.date;
 
+                                // If there are transfers, those are displayed as well
                                 for (let i = 1; i < legs.length; i++) {
                                     var leg = legs[i];
                                     if (leg.Origin.name != leg.Destination.name /* && leg.*/ ) {
@@ -88,6 +98,7 @@ exports.ToAndFrom = function (conv) {
                                     }
                                 }
 
+                                // Calculation to output the total travel time for the trip
                                 var cStart = firstLeg.Origin.rtTime == undefined ? firstLeg.Origin.time : firstLeg.Origin.rtTime;
                                 var cStop = lastLeg.Destination.rtTime == undefined ? lastLeg.Destination.time : lastLeg.Destination.rtTime;
 
@@ -102,14 +113,8 @@ exports.ToAndFrom = function (conv) {
                                 resolve(output);
                             })
                             .catch(simpleServer.ApiError);
-
-
-
                     })
                     .catch(simpleServer.ApiError);
-
-
-
             })
             .catch(simpleServer.ApiError);
     });

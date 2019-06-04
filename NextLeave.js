@@ -13,9 +13,10 @@ const request = require('request');
 const axios = require('axios');
 const toAndFrom = require('./ToAndFrom.js');
 
+// where = "to", "towards"; determines text of response
 exports.NextLeave = function (conv, where) {
   var to, goingTowards = false;
-  // var where = "to";
+  // Collect mandatory parameters (either to or towards will always be available)
   if (where == "to") {
     to = conv.parameters.to;
   } else if (where == "towards") {
@@ -23,7 +24,8 @@ exports.NextLeave = function (conv, where) {
     goingTowards = true;
   }
 
-  var from = "Solna Business Park"; // default for optional parameter "from"
+  // Default value for optional parameter from
+  var from = "Solna Business Park";
   if (toAndFrom.undefinedCheck(conv.parameters.from) != "") {
     from = conv.parameters.from;
   }
@@ -38,10 +40,11 @@ exports.NextLeave = function (conv, where) {
     }
     return;
   }
+  // id of locations
   var startDest, endDest;
 
   return new Promise((resolve, reject) => {
-    //get end
+    // Lookup using SL Platsuppslag. Returns the id of the destination (to)
     axios.get(simpleServer.locationBaseUrl + '&searchstring=' + to + '&maxresults=1', {})
       .then((res) => {
         if (res.data.ResponseData.length == 0) {
@@ -50,7 +53,7 @@ exports.NextLeave = function (conv, where) {
         }
         endDest = res.data.ResponseData[0].SiteId;
 
-        //get start
+        // Lookup using SL Platsuppslag. Returns the id of the origin (from)
         axios.get(simpleServer.locationBaseUrl + '&searchstring=' + from + '&maxresults=1', {})
           .then((res) => {
             if (res.data.ResponseData.length == 0) {
@@ -58,15 +61,19 @@ exports.NextLeave = function (conv, where) {
               return;
             }
             startDest = res.data.ResponseData[0].SiteId;
+
+            // Gets the current time
             var date = new Date();
             var formattedCurrentDate = date.getFullYear() + "-" + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate();
             var time = (date.getHours() < 10 ? "0" : "") + (date.getHours()) + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
             var url = simpleServer.tripBaseUrl + '&originId=' + startDest + '&destId=' + endDest + '&time=' + time + '&date=' + formattedCurrentDate;
-            //get trips
+
+            // Get trip details using SL Reseplanerare 3.1
             axios.get(url, {})
               .then((res) => {
                 var Trip = ""; //= res.data.Trip[0];
                 var SecondTrip = "";
+                // Checks that the time for the first trip hasn't already passed, and finds the next available trip as well
                 for (let i = 0; i < res.data.Trip.length; i++) {
                   var tripLocal = res.data.Trip[i];
                   var originTimeMilliseconds = new Date(tripLocal.LegList.Leg[0].Origin.date + "T" + tripLocal.LegList.Leg[0].Origin.rtTime).getTime();
@@ -80,6 +87,8 @@ exports.NextLeave = function (conv, where) {
                     break;
                   }
                 }
+
+                // Each leg is one potentially partial trip from point A to point B (other legs are transfers)
                 var legs = Trip.LegList.Leg;
                 var firstLeg = legs[0];
                 var lastLeg = legs[legs.length - 1];
@@ -100,14 +109,15 @@ exports.NextLeave = function (conv, where) {
                   }
                 }
 
-                // ${undefinedCheck(firstLeg.Product.line)}${directionCheck(firstLeg.direction)}
+                // This is the primary response that is returned to the user
                 var outputString = `Nästa ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[firstLeg.category])}${nextLeaveProductCheck(firstLeg.Product)} ${goingTowards?"mot":"till"} ${toAndFrom.undefinedCheck(firstLeg.Destination.name)} 
                   går klockan ${toAndFrom.undefinedCheck(toAndFrom.cutTime(firstLeg.Origin.rtTime == undefined ? firstLeg.Origin.time : firstLeg.Origin.rtTime))}${SecondTripUndefined(SecondTrip, secondTripLeg)}.`;
 
+                // Output some information for the first transfer, if there is one
                 for (let i = index; i < legs.length; i++) {
                   var leg = legs[i];
-                  // TODO: Add check for walk
 
+                  // If the transfer is of type "WALK", it is ignored
                   if (leg.Origin.name != leg.Destination.name && leg.type != "WALK") {
                     outputString += ` Byt sedan till ${toAndFrom.undefinedCheck(toAndFrom.TravelCategory[leg.category])}${nextLeaveProductCheck(leg.Product)} till ${toAndFrom.undefinedCheck(leg.Destination.name)}.`;
                     break; // Only output first transfer
