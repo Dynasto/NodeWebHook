@@ -14,9 +14,9 @@ exports.ToAndFrom = function (conv) {
     }
     if (to == from) {
         if (Math.random() >= 0.5) {
-            simpleServer.agent.add('Om jag förstod dig rätt så vill du åka från ' + from + ' till ' + to + '? Då behöver du ju bara stå still!');
+            simpleServer.agent.add('Om jag förstod dig rätt så vill du åka från ' + from + ' till ' + to + '? Det är ju samma plats!');
         } else {
-            simpleServer.agent.add('Jag hittade ingen resa från ' + from + ' till ' + to + ". Det kan ju bero på att du inte behöver röra en fena för att komma dit.");
+            simpleServer.agent.add('Hmm, jag måste ha missförstått dig... Jag hittade ingen resa från ' + from + ' till ' + to + ", men det är ju samma plats!");
         }
         return;
     }
@@ -77,7 +77,7 @@ exports.ToAndFrom = function (conv) {
                                 var firstLeg = legs[0];
                                 var lastLeg = legs[legs.length - 1];
                                 if (!firstLeg.reachable) {
-                                    simpleServer.agent.add(`Det går inte att resa från ${firstLeg.Origin.name} till ${firstLeg.Destination.name} just nu. Besök SL.se för aktuell info!`);
+                                    simpleServer.agent.add(`Det går inte att resa från ${firstLeg.Origin.name} till ${firstLeg.Destination.name} just nu. Besök SL.se för aktuell info.`);
                                     resolve(output);
                                     return;
                                 }
