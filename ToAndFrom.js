@@ -11,7 +11,11 @@ exports.ToAndFrom = function (conv) {
         return;
     }
     if (to == from) {
-        simpleServer.agent.add('Skriv inte samma');
+        if (Math.random() >= 0.5) {
+            simpleServer.agent.add('Om jag förstod dig rätt så vill du åka från ' + from + ' till ' + to + '? Då behöver du ju bara stå still!');
+        } else {
+            simpleServer.agent.add('Jag hittade ingen resa från ' + from + ' till ' + to + ". Det kan ju bero på att du inte behöver röra en fena för att komma dit.");
+        }
         return;
     }
     var startDest, endDest;
@@ -21,7 +25,7 @@ exports.ToAndFrom = function (conv) {
         axios.get(simpleServer.locationBaseUrl + '&searchstring=' + to + '&maxresults=1', {})
             .then((res) => {
                 if (res.data.ResponseData.length == 0) {
-                    agent.add('Adressen hittades inte');
+                    agent.add('Jag kunde inte hitta adressen!');
                     return;
                 }
                 endDest = res.data.ResponseData[0].SiteId;
@@ -30,7 +34,7 @@ exports.ToAndFrom = function (conv) {
                 axios.get(simpleServer.locationBaseUrl + '&searchstring=' + from + '&maxresults=1', {})
                     .then((res) => {
                         if (res.data.ResponseData.length == 0) {
-                            agent.add('Adressen hittades inte');
+                            agent.add('Jag kunde inte hitta adressen!');
                             return;
                         }
                         startDest = res.data.ResponseData[0].SiteId;
@@ -65,7 +69,7 @@ exports.ToAndFrom = function (conv) {
                                 var firstLeg = legs[0];
                                 var lastLeg = legs[legs.length - 1];
                                 if (!firstLeg.reachable) {
-                                    simpleServer.agent.add(`Resan ${firstLeg.Origin.name} till ${firstLeg.Destination.name} är inte åtkomlig för tillfället.`);
+                                    simpleServer.agent.add(`Det går inte att resa från ${firstLeg.Origin.name} till ${firstLeg.Destination.name} just nu. Besök SL.se för aktuell info!`);
                                     resolve(output);
                                     return;
                                 }
